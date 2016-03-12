@@ -1,5 +1,8 @@
 var emailRegex = require("email-regex")({exact: true});
 var urlRegex = require("url-regex")({exact: true});
+function inspect(o){
+    console.log(require("util").inspect(o, {depth: Infinity}));
+}
 
 /**
  * Missing:
@@ -163,8 +166,8 @@ var grammarSpec = {
                 {
                     name: "lines",
                     oneOrMoreOf: {
-                        what: /(.+)([\r\n]|$)/,
-                        captureIndex: 1
+                        what: /(?!`{3})(.+)([\r\n]|$)/,
+                        captureIndex: 2
                     }
                 },
                 /[\r\n]|$/
@@ -173,12 +176,16 @@ var grammarSpec = {
 
         codeblock: {
             components: [
-                /(`){3}/,
-                { rule: "word", name: "language" },
+                /```/,
+                { optionally: "word", name: "language" },
                 "newline",
-                { what: /(.*[^```])*/, name: "code"},
-                "newline"
-            ]
+                {
+                    name: "text",
+                    what: /(([\S\s](?:(?!`{3})))*)([\r\n]|$)/,
+                    captureIndex: 1
+                },
+                /```[\r\n]{1,}/
+            ],
         },
 
         quoteblock: {
@@ -197,9 +204,9 @@ var grammarSpec = {
                 zeroOrMoreOf: {
                     oneOf: [
                         "heading",
-                        "paragraph",
                         "codeblock",
-                        "quoteblock"
+                        "paragraph",
+                        //"quoteblock",
                     ]
                 }
             }
@@ -208,4 +215,21 @@ var grammarSpec = {
     start: "document"
 };
 
-module.exports = grammarSpec;
+var difmParser = require("parsing").create(grammarSpec);
+
+var txt = [
+    "# Heading 1",
+    "This is a paragraph.",
+    "it consists of many lines.",
+    "",
+    "```",
+    "var foo = 'bar';",
+    "```",
+    "",
+    "This is also a paragraph.",
+].join("\n");
+
+inspect(difmParser);
+console.log("In:",txt);
+var out = difmParser.parse(txt, {stderr: process.stderr});
+inspect(out);
